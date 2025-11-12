@@ -1,105 +1,237 @@
-# Tamil Tokenizer Repository
 
-This repository provides a comprehensive suite of tools and scripts for tokenizing Tamil text, handling sandhi rules, out-of-vocabulary (OOV) detection, and evaluating tokenization models. It is designed for research and practical applications in Tamil NLP, including experiments, model training, and evaluation.
+Companion repository for the **“Agathiyam – Sandhi-aware tokenization for Tamil Language.”**
 
-## Directory Structure
+This repository collects the **corpora, tokenizers, evaluation scripts, and analysis artifacts** that underpin the paper’s exploration of Tamil and code-mixed tokenization.
 
-- *core/*: Main tokenization logic and utilities
-  - [core/bpe.py](core/bpe.py): Byte Pair Encoding tokenizer implementation
-  - [core/compare_tokenizers.py](core/compare_tokenizers.py): Compare different tokenizers
-  - [core/GPE_sandhi.py](core/GPE_sandhi.py), [core/gpe.py](core/gpe.py), [core/sandhi.py](core/sandhi.py): Sandhi rule handling
-  - [core/oov.py](core/oov.py): Out-of-vocabulary detection
-  - [core/trim_tokens.py](core/trim_tokens.py): Token trimming utilities
-- *data/*: Sample datasets and checkpoints
-  - [data/sample_tamil.txt](data/sample_tamil.txt): Example Tamil text file
-  - [data/agathyam_tokens.txt](data/agathyam_tokens.txt), [data/agathyam_tokens_trimmed.txt](data/agathyam_tokens_trimmed.txt): Token lists
-  - [data/checkpoint.pkl](data/checkpoint.pkl): Model checkpoint
-  - [data/vocab_bpe.pkl](data/vocab_bpe.pkl): BPE vocabulary
-  - [data/merges_bpe.pkl](data/merges_bpe.pkl): BPE merge rules
-  - [data/flores/](data/flores/): Additional multilingual datasets
-- *experiments/*: Scripts for training, evaluation, and embedding initialization
-  - [experiments/eval_perplexity.py](experiments/eval_perplexity.py): Perplexity evaluation
-  - [experiments/initialize_embeddings.py](experiments/initialize_embeddings.py): Embedding initialization
-  - [experiments/lightweight_pretrain_fixed.py](experiments/lightweight_pretrain_fixed.py): Lightweight pretraining
-- *tamiltokenizer/*: Additional tokenizer modules
-- *tests/*: Unit tests
-- *jupyter/, **Lib/, **models/, **results/, **Scripts/, **share/*: Supporting scripts, notebooks, and outputs
+---
 
-## Installation
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Status](https://img.shields.io/badge/status-research--prototype-yellow)
+![License](https://img.shields.io/badge/license-pending-lightgrey)
 
-1. *Clone the repository:*
-   sh
-   git clone https://github.com/yourusername/tamiltokenizer.git
-   cd tamiltokenizer
-   
+---
 
-2. *Install dependencies:*
-   sh
-   pip install -r requirements.txt
-   
+## 🧩 Overview
 
-## Usage
+* Provides **sandhi-aware**, **grapheme-aware**, and **byte-level** tokenizers tailored to Tamil and Tamil–English code-mixed text.
+* Bundles curated datasets (`Agathiyam-Tamil`, `flores`, Samanantar-derived splits) and ready-to-use tokenizer checkpoints.
+* Includes **evaluation pipelines** for compression, fertility, coverage, and downstream Gemma-270M fine-tuning experiments.
+* Documents extensive **sandhi-rule engineering and testing**, with coverage dashboards and analysis notebooks.
 
-### Tokenize Tamil Text
+---
 
-->To tokenize a Tamil text file using BPE:
-python core/bpe.py 
+## 📁 Repository Layout
 
-->To tokenize a Tamil text file using GPE:
-python core/gpe.py 
+| Directory / File                             | Description                                                                                                           |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `GPE/`                                       | Core tokenizer implementations (`bpe.py`, `gpe.py`, `GPE_sandhi.py`), sandhi utilities, evaluation scripts, and tests |
+| `data/`                                      | Lightweight text corpora for quick experimentation (`train.txt`, `test.txt`, cached tokenizer dumps)                  |
+| `Agathiyam-Tamil/`                           | Lexical resources derived from classical Tamil grammar used to seed sandhi rules                                      |
+| `Pretokenization/`, `Byte_level_tokenizers/` | Jupyter notebooks and CSV summaries for reproducibility                                                               |
+| `coverage_html/`                             | HTML coverage dashboard produced by `coverage.py`                                                                     |
+| `results_gemma*`, `gemma270m_regimeB*`       | Checkpoints, configs, and metrics for Gemma-3 270M experiments                                                        |
+| `*.csv`, `*.png`, `*_REPORT.md`              | Metric dumps, charts, and narrative reports referenced in the paper                                                   |
 
-->To tokenize a Tamil text file using Sandhi-GPE:
-python core/sandhi.py 
-python core/GPE-Sandhi.py 
+---
 
+## ⚙️ Getting Started
 
-### Compare Tokenizers
+### 1. Clone / Extract
 
-->To compare different tokenizers:
-python core/compare_tokenizers.py 
+```bash
+git clone https://github.com/RoshiniPriya05/Agathiyam-Tamil.git
+cd Agathiyam-Tamil
+```
 
-### OOV Detection
+### 2. Create a Python Environment (≥3.10 recommended)
 
-To detect out-of-vocabulary words:
+```bash
+python -m venv .venv
 
-python core/oov.py
+# Windows
+.\\.venv\\Scripts\\activate
 
-### Trim Tokens
+# macOS / Linux
+source .venv/bin/activate
+```
 
-To trim tokens in a file:
-python core/trim_tokens.py 
+### 3. Install Dependencies
 
-### Evaluate Perplexity
+```bash
+pip install --upgrade pip
+pip install regex grapheme datasets tqdm pandas numpy matplotlib \
+            torch transformers accelerate huggingface-hub
+```
 
-To evaluate model perplexity:
-python experiments/eval_perplexity.py 
+**Optional (for notebooks, linting, and coverage reports):**
 
+```bash
+pip install jupyter pytest pytest-cov coverage
+```
 
-### Initialize Embeddings
+### 4. Environment Setup
 
-To initialize embeddings:
-sh
-python experiments/initialize_embeddings.py 
+* Add the repository root (or `GPE/`) to your `PYTHONPATH` if you plan to run modules with `python -m`.
+* Hugging Face datasets are downloaded on first use; ensure `HF_HOME` points to a location with sufficient space.
 
+**Tested on:** Python 3.10–3.12, Ubuntu 22.04, and Windows 11.
 
-## Testing
+---
 
-Run all unit tests with:
-pytest tests/
+## 🗂️ Datasets
 
+| Dataset                    | Source                                | Usage                   | Location           |
+| -------------------------- | ------------------------------------- | ----------------------- | ------------------ |
+| Samanantar (Tamil–English) | Hugging Face (`ai4bharat/samanantar`) | Parallel text           | dynamic / cached   |
+| Agathiyam–Tamil            | Curated lexical set                   | Sandhi rule induction   | `Agathiyam-Tamil/` |
+| Flores                     | Hugging Face                          | Multilingual evaluation | `flores/`          |
+| Supplementary corpora      | Local                                 | Quick experiments       | `data/`            |
 
-## Data
+> ⚠️ Large Samanantar-derived corpora are not checked into Git.
+> Configure absolute paths in scripts (see `corpus_file`, `checkpoint_path`, or `--path` CLI flag).
 
-Sample data files are provided in the data/ directory. You can use your own datasets by placing them in this folder.
+---
 
-## Contributing
+## 🧠 Training Tokenizers
 
-Contributions are welcome! Please open an issue or submit a pull request.
+### 1. Baseline BPE (`GPE/bpe.py`)
 
-## License
+```bash
+cd GPE
+python bpe.py
+```
 
-See [LICENSE](LICENSE) for details.
+Outputs: learned vocabulary and merge rules (pickle format).
 
-## Contact
+---
 
-For questions or contributions, please open an issue or contact the repository maintainer.
+### 2. Grapheme-level Tokenizer (`GPE/gpe.py`)
+
+```bash
+cd GPE
+python gpe.py
+```
+
+Outputs: grapheme vocabulary and merge rules.
+
+---
+
+### 3. Sandhi-aware Grapheme BPE (`GPE/GPE_sandhi.py`)
+
+```bash
+python -m GPE.GPE_sandhi
+```
+
+**Key parameters:**
+
+* `lang`: `"mix"` for Tamil–English code-mixed handling (default)
+* `checkpoint_path`: optional pickle to resume long runs
+* `base`: output directory for saved model
+
+Outputs: sandhi-aware vocabulary and merge files, optionally checkpointed mid-run.
+
+---
+
+## 📊 Boundary & Coverage Utilities
+
+```bash
+python -m GPE.run_samanantar_coverage --limit 50000 --path /path/to/corpus.txt
+```
+
+Generates boundary counts and split statistics.
+Additional analyses via `sandhi_rules_analysis.py` and `enhanced_sandhi_analysis.py`.
+
+---
+
+## 📈 Evaluation & Metrics
+
+### Compression / Fertility
+
+```bash
+python -m GPE.compare_tokenizers
+```
+
+Produces `evaluation_results.csv` and console summaries.
+
+### Coverage Dashboards
+
+Generated with `coverage.py` and `pytest` → see `coverage_html/`, `COVERAGE_REPORT.md`, `COVERAGE_SUMMARY_REPORT.md`.
+
+### Distribution Reports
+
+Files such as:
+
+* `sandhi_distribution.csv` / `.png`
+* `sandhi_rule_frequencies.txt`
+* `SANDHI_TOKENIZATION_ANALYSIS_REPORT.md`
+
+### Pretokenization Studies
+
+CSV results in:
+
+* `Pretokenization/results/`
+* `Byte_level_tokenizers/results/`
+
+These reproduce compression and parity metrics from the paper.
+
+---
+
+## 🤖 Language Model Experiments
+
+* `lightweight_pretrain*.py` — fine-tune small GPT-style models (e.g., Gemma-3 270M) with custom tokenizers.
+* Configure `MODEL_ID`, `train_file`, and tokenizer paths.
+* Outputs under `results/`, `gemma270m_regimeB*/`, or `results_gemma*/`.
+
+Utilities:
+
+* `initialize_embeddings.py` and `oov.py` align tokenizer vocabularies with pretrained embeddings for Tamil tokens.
+
+---
+
+## 🧪 Testing & Coverage
+
+```bash
+pytest GPE/test_*.py -v
+coverage run --source=GPE -m pytest GPE/test_*.py
+coverage report -m
+coverage html  # view report in coverage_html/
+```
+
+Key test modules:
+
+* `test_coverage_analysis.py`
+* `test_reverse_sandhi_check.py`
+* `test_summarizer.py`
+
+---
+
+## 📓 Notebooks
+
+Open notebooks under `Pretokenization/` or `Byte_level_tokenizers/` to reproduce plots:
+
+```bash
+jupyter notebook Pretokenization/testing_FLORES200_Multi-lingual.ipynb
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome pull requests that:
+
+* Improve sandhi coverage or add new Tamil dialectal rules.
+* Extend evaluation scripts to other Indic languages.
+* Add reproducible test suites.
+
+Please open an issue to discuss major changes before submitting a PR.
+
+---
+
+## ⚖️ License
+
+A license has not been formally selected yet.
+Until finalized, this repository is shared **for academic and research evaluation only**.
+Please contact the authors for reuse or redistribution beyond this purpose.
+
+---
+
