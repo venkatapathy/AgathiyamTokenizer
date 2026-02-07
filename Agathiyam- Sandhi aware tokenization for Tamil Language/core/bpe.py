@@ -1,7 +1,35 @@
-# bpe_correct.py
+# bpe_local_fast.py
 import pickle
-from collections import Counter, defaultdict
+from collections import Counter
 from typing import List, Tuple, Dict
+from pathlib import Path
+
+# ---------------- utilities for reading local corpus ----------------
+def load_local_corpus(
+    folder: str,
+    pattern: str = "*.txt",
+    max_sentences: int = 50000,
+) -> List[str]:
+    """
+    Load text lines from all files matching 'pattern' in 'folder'.
+    Stops after max_sentences non-empty lines for speed.
+    """
+    folder_path = Path(folder)
+    if not folder_path.exists():
+        raise FileNotFoundError(f"Folder not found: {folder_path}")
+
+    lines: List[str] = []
+    for file in folder_path.glob(pattern):
+        # adjust encoding if needed
+        text = file.read_text(encoding="utf-8", errors="ignore")
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            lines.append(line)
+            if len(lines) >= max_sentences:
+                return lines
+    return lines
 
 
 # ---------------- utilities for BPE training ----------------
@@ -47,7 +75,11 @@ def merge_vocab(pair: Tuple[str, str], vocab: Counter) -> Counter:
         new_word = []
         i = 0
         while i < len(word_symbols):
-            if i < len(word_symbols) - 1 and word_symbols[i] == find_left and word_symbols[i + 1] == find_right:
+            if (
+                i < len(word_symbols) - 1
+                and word_symbols[i] == find_left
+                and word_symbols[i + 1] == find_right
+            ):
                 new_word.append(merged_symbol)
                 i += 2
             else:
@@ -58,14 +90,18 @@ def merge_vocab(pair: Tuple[str, str], vocab: Counter) -> Counter:
     return new_vocab
 
 
-def train_bpe(corpus: List[str], num_merges: int = 100) -> Tuple[Dict[str, int], List[Tuple[str, str]]]:
+def train_bpe_with_merges(
+    corpus: List[str],
+    num_merges: int,
+) -> Tuple[Dict[str, int], List[Tuple[str, str]]]:
     """
-    Train BPE on given corpus (list of lines). Returns token_to_id map and ordered merges list.
+    Train BPE on given corpus (list of lines) for a fixed number of merges.
+    Returns token_to_id map and ordered merges list.
     """
     vocab = get_vocab(corpus)
     merges: List[Tuple[str, str]] = []
 
-    for i in range(num_merges):
+    for _ in range(num_merges):
         pairs = get_pair_stats(vocab)
         if not pairs:
             break
@@ -79,7 +115,7 @@ def train_bpe(corpus: List[str], num_merges: int = 100) -> Tuple[Dict[str, int],
         tokens.update(word_symbols)
 
     # reserve special tokens
-    token_to_id = {'<UNK>': 0, '<SPACE>': 1}
+    token_to_id: Dict[str, int] = {'<UNK>': 0, '<SPACE>': 1}
     idx = max(token_to_id.values()) + 1
     for t in sorted(tokens):
         if t not in token_to_id:
@@ -87,6 +123,31 @@ def train_bpe(corpus: List[str], num_merges: int = 100) -> Tuple[Dict[str, int],
             idx += 1
 
     return token_to_id, merges
+
+
+def train_bpe_to_vocab_size(
+    corpus: List[str],
+    target_vocab_size: int,
+) -> Tuple[Dict[str, int], List[Tuple[str, str]]]:
+    """
+    Train BPE until (roughly) reaching target_vocab_size.
+    For classic BPE:
+        final_vocab_size ≈ initial_symbol_count + num_merges + 2 (special tokens).
+    """
+    # get initial character-level vocab once
+    initial_vocab = get_vocab(corpus)
+    base_symbols = set()
+    for word_symbols in initial_vocab:
+        base_symbols.update(word_symbols)
+    # base_symbols includes '</w>'; +2 for <UNK>, <SPACE>
+    base_size = len(base_symbols) + 2
+
+    if target_vocab_size <= base_size:
+        # no merges needed
+        return train_bpe_with_merges(corpus, num_merges=0)
+
+    num_merges = target_vocab_size - base_size
+    return train_bpe_with_merges(corpus, num_merges=num_merges)
 
 
 # ---------------- tokenizer object ----------------
@@ -105,33 +166,35 @@ class BPETokenizer:
         Apply learned merges (in order) to a single word.
         Returns list of BPE subword tokens for that word (without the '</w>' marker).
         """
-        # initial token sequence: characters + end-of-word marker
         tokens = list(word) + ['</w>']
         for pair in self.merges:
             i = 0
             new_tokens = []
             while i < len(tokens):
-                if i < len(tokens) - 1 and tokens[i] == pair[0] and tokens[i + 1] == pair[1]:
+                if (
+                    i < len(tokens) - 1
+                    and tokens[i] == pair[0]
+                    and tokens[i + 1] == pair[1]
+                ):
                     new_tokens.append(pair[0] + pair[1])
                     i += 2
                 else:
                     new_tokens.append(tokens[i])
                     i += 1
             tokens = new_tokens
-        # drop the end-of-word marker and return
         return [t for t in tokens if t != '</w>']
 
-    def encode(self, text: str) -> Tuple[List[str], List[int]]:
+    def encode(self, text: str):
         """
         Encode a full text string into BPE tokens and ids.
         Word boundaries are separated using the special token '<SPACE>' in the output token list.
         """
         tokens: List[str] = []
-        for i, w in enumerate(text.strip().split()):
+        words = text.strip().split()
+        for i, w in enumerate(words):
             sub_tokens = self._apply_merges_to_word(w)
             tokens.extend(sub_tokens)
-            # append explicit space token between words
-            if i < len(text.strip().split()) - 1:
+            if i < len(words) - 1:
                 tokens.append('<SPACE>')
 
         ids = [self.token_to_id.get(t, self.token_to_id.get('<UNK>', 0)) for t in tokens]
@@ -152,20 +215,23 @@ class BPETokenizer:
                 current.append(t)
         if current:
             out_words.append(''.join(current))
-        # join words with spaces
         return ' '.join(out_words)
 
 
 # ---------------- save / load ----------------
-def save_bpe(token_to_id: Dict[str, int], merges: List[Tuple[str, str]],
-             vocab_file: str = "vocab_bpe.pkl", merges_file: str = "merges_bpe.pkl"):
+def save_bpe(
+    token_to_id: Dict[str, int],
+    merges: List[Tuple[str, str]],
+    vocab_file: str,
+    merges_file: str,
+):
     with open(vocab_file, "wb") as f:
         pickle.dump(token_to_id, f)
     with open(merges_file, "wb") as f:
         pickle.dump(merges, f)
 
 
-def load_bpe(vocab_file: str = "vocab_bpe.pkl", merges_file: str = "merges_bpe.pkl") -> BPETokenizer:
+def load_bpe(vocab_file: str, merges_file: str) -> BPETokenizer:
     with open(vocab_file, "rb") as f:
         token_to_id = pickle.load(f)
     with open(merges_file, "rb") as f:
@@ -173,24 +239,35 @@ def load_bpe(vocab_file: str = "vocab_bpe.pkl", merges_file: str = "merges_bpe.p
     return BPETokenizer(token_to_id, merges)
 
 
-# ---------------- example usage ----------------
+# ---------------- main: train with 10k / 20k / 30k ----------------
 if __name__ == "__main__":
-    # small test/training on first 500 lines of your file (like you had)
-    with open('data/samanantar_eng_90_percent_cleaned1.txt', 'r', encoding='utf-8') as f:
-        corpus_lines = [line.strip() for line in f if line.strip()][:500]
+    # 1) Load corpus from your local folder (change pattern if not .txt)
+    
+    with open('trainn.txt', 'r', encoding='utf-8') as f:
+        corpus_lines = f.readlines()
 
-    # Train BPE (tune num_merges)
-    token_to_id, merges = train_bpe(corpus_lines, num_merges=200)
-    tokenizer = BPETokenizer(token_to_id, merges)
+    print(f"Loaded {len(corpus_lines)} lines from local corpus")
 
-    # Save
-    save_bpe(token_to_id, merges)
+    # 2) Train for three vocab sizes
+    merge_budget = [10000, 20000, 30000,3000000]
 
-    # Test
+    for vs in merge_budget:
+        token_to_id, merges = train_bpe_to_vocab_size(corpus_lines, target_vocab_size=vs)
+        tokenizer = BPETokenizer(token_to_id, merges)
+        print(f"Target vocab {vs}, actual vocab size: {len(token_to_id)}")
+
+        # Save per vocab size
+        save_bpe(
+            token_to_id,
+            merges,
+            vocab_file=f"vocab_bpe_{vs}.pkl",
+            merges_file=f"merges_bpe_{vs}.pkl",
+        )
+
+    # 3) Quick test on a Tamil sentence
     sample_text = "தமிழ் ஒரு செழுமையான மொழி"
     tokens, ids = tokenizer.encode(sample_text)
     decoded = tokenizer.decode(ids)
-
     print("BPE tokens:", tokens)
     print("BPE ids:", ids)
     print("Decoded:", decoded)
