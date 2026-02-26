@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tokenizer comparison – Agathiyam</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+Tamil:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e6edf3;
+      --muted: #8b9cb3;
+      --accent: #58a6ff;
+      --accent-dim: #388bfd66;
+      --tamil: #7ee787;
+      --token-bg: #21262d;
+      --token-border: #30363d;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .input-wrap {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      font-family: 'Noto Sans Tamil', 'IBM Plex Sans', sans-serif;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      resize: vertical;
+    }
+    textarea::placeholder { color: var(--muted); }
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .btn {
+      padding: 0.6rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--bg);
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:active { filter: brightness(0.95); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    #results {
+      margin-top: 2rem;
+    }
+    .model-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .model-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .model-card .count {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .model-card .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin: 0 0 0.5rem 0;
+      line-height: 1.35;
+    }
+    .tokens {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.75rem;
+    }
+    .token {
+      font-family: 'Noto Sans Tamil', 'IBM Plex Sans', monospace;
+      font-size: 0.85rem;
+      padding: 0.2rem 0.5rem;
+      background: var(--token-bg);
+      border: 1px solid var(--token-border);
+      border-radius: 4px;
+      color: var(--tamil);
+      word-break: break-all;
+    }
+    .token.space {
+      color: var(--muted);
+      border-style: dashed;
+    }
+    .error-msg {
+      font-size: 0.85rem;
+      color: #f85149;
+      margin-top: 0.5rem;
+    }
+    .empty-state {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tokenizer comparison</h1>
+    <p class="subtitle">See how different tokenizers split the same sentence (Tamil-friendly).</p>
+
+    <div class="input-wrap">
+      <label for="text">Enter a sentence (Tamil or English)</label>
+      <textarea id="text" placeholder="e.g. தமிழ் ஒரு செழுமையான மொழி"></textarea>
+    </div>
+    <button class="btn" id="run">Tokenize</button>
+
+    <div id="results"></div>
+    <p class="empty-state" id="empty">Enter text and click Tokenize to compare.</p>
+  </div>
+
+  <script>
+    const textEl = document.getElementById('text');
+    const runBtn = document.getElementById('run');
+    const resultsEl = document.getElementById('results');
+    const emptyEl = document.getElementById('empty');
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function renderToken(t) {
+      const isSpace = t === '<SPACE>';
+      const span = document.createElement('span');
+      span.className = 'token' + (isSpace ? ' space' : '');
+      span.textContent = isSpace ? '␣' : t;
+      span.title = isSpace ? 'space' : escapeHtml(t);
+      return span;
+    }
+
+    runBtn.addEventListener('click', async () => {
+      const text = (textEl.value || '').trim();
+      if (!text) return;
+
+      runBtn.disabled = true;
+      emptyEl.style.display = 'none';
+      resultsEl.innerHTML = '';
+
+      try {
+        const res = await fetch('/api/tokenize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          resultsEl.innerHTML = '<p class="error-msg">' + escapeHtml(data.error || 'Request failed') + '</p>';
+          return;
+        }
+
+        const hints = {
+          'BPE': 'Merges by frequency; can cross word/sandhi boundaries.',
+          'GPE': 'Grapheme-level merges; can cross word/sandhi boundaries.',
+          'Agathiyam': 'Sandhi-aware: never merges across sandhi boundaries (more splits at morph boundaries).'
+        };
+        const results = data.results || {};
+        for (const [name, info] of Object.entries(results)) {
+          const card = document.createElement('div');
+          card.className = 'model-card';
+          const tokens = info.tokens || [];
+          const err = info.error;
+          const hint = hints[name] ? '<p class="hint">' + escapeHtml(hints[name]) + '</p>' : '';
+          let extra = '';
+          if (name === 'Agathiyam' && info.sandhi_boundaries != null) {
+            extra = '<p class="hint">(' + info.sandhi_boundaries + ' sandhi boundaries in this text)</p>';
+          }
+          card.innerHTML = '<h3>' + escapeHtml(name) + ' <span class="count">' + (tokens.length) + ' tokens</span></h3>' + hint + extra;
+          if (err) {
+            const errP = document.createElement('p');
+            errP.className = 'error-msg';
+            errP.textContent = err;
+            card.appendChild(errP);
+          } else {
+            const wrap = document.createElement('div');
+            wrap.className = 'tokens';
+            tokens.forEach(t => wrap.appendChild(renderToken(t)));
+            card.appendChild(wrap);
+          }
+          resultsEl.appendChild(card);
+        }
+      } catch (e) {
+        resultsEl.innerHTML = '<p class="error-msg">' + escapeHtml(e.message) + '</p>';
+      } finally {
+        runBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

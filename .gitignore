@@ -1,0 +1,8 @@
+Agathiyam/.venv310/*
+Agathiyam/.venv/*
+Agathiyam/models/*
+__pycache__/*
+Agathiyam/core/__pycache__/*
+Agathiyam/results/*
+Agathiyam/tests/*
+*.pkl
