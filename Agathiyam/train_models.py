@@ -15,7 +15,7 @@ MODELS_DIR = ROOT / "models"
 MODELS_DIR.mkdir(exist_ok=True)
 
 # Merge budget; will be capped by corpus size (override with env MERGE_BUDGET)
-MERGE_BUDGET = int(os.getenv("MERGE_BUDGET", "5000"))
+MERGE_BUDGET = int(os.getenv("MERGE_BUDGET", "8000"))
 
 # Max lines to use from Samanantar Tamil (override with env SAMANANTAR_TAMIL_MAX_LINES)
 # Default 20k for faster training; use 100000 for full run (expect several hours for BPE+GPE+Agathiyam)
