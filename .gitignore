@@ -10,3 +10,6 @@ Agathiyam/tests/*
 # Keep data/ and models/ local and intact (never tracked or overwritten by default)
 Agathiyam/data/
 Agathiyam/models/
+Agathiyam- Sandhi aware tokenization for Tamil Language/core/__pycache__/*
+Agathiyam- Sandhi aware tokenization for Tamil Language/data/archieves/*
+Agathiyam- Sandhi aware tokenization for Tamil Language/data/flores/*
