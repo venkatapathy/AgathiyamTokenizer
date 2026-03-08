@@ -1,12 +1,12 @@
-Agathiyam/.venv/*
 Agathiyam/.venv310/*
+Agathiyam/.venv/*
 Agathiyam/models/*
-Agathiyam/tests/*
+__pycache__/*
 Agathiyam/core/__pycache__/*
-*.pkl
 Agathiyam/results/*
-Agathiyam- Sandhi aware tokenization for Tamil Language/core/__pycache__/*
+Agathiyam/tests/*
+*.pkl
 
 # Keep data/ and models/ local and intact (never tracked or overwritten by default)
-Agathiyam- Sandhi aware tokenization for Tamil Language/data/
-Agathiyam- Sandhi aware tokenization for Tamil Language/models/
+Agathiyam/data/
+Agathiyam/models/
